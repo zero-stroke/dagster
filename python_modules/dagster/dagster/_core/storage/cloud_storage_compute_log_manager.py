@@ -117,8 +117,12 @@ class CloudStorageComputeLogManager(CapturedLogManager, ComputeLogManager):
         # check remote storage
         return self.cloud_storage_has_logs(log_key, ComputeIOType.STDERR)
 
+    @property
+    def should_check_local(self) -> bool:
+        return True
+
     def log_data_for_type(self, log_key, io_type, offset, max_bytes):
-        if self._has_local_file(log_key, io_type):
+        if self.should_check_local and self._has_local_file(log_key, io_type):
             local_path = self.local_manager.get_captured_local_path(
                 log_key, IO_TYPE_EXTENSION[io_type]
             )
