@@ -350,7 +350,7 @@ class DbtCliInvocation:
 class DbtCliResource(ConfigurableResource):
     """A resource used to execute dbt CLI commands.
 
-    Attributes:
+    Args:
         project_dir (str): The path to the dbt project directory. This directory should contain a
             `dbt_project.yml`. See https://docs.getdbt.com/reference/dbt_project.yml for more
             information.

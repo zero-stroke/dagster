@@ -60,7 +60,7 @@ SourceAssetObserveFunction: TypeAlias = Callable[..., Any]
 class SourceAsset(ResourceAddable):
     """A SourceAsset represents an asset that will be loaded by (but not updated by) Dagster.
 
-    Attributes:
+    Args:
         key (Union[AssetKey, Sequence[str], str]): The key of the asset.
         metadata (Mapping[str, MetadataValue]): Metadata associated with the asset.
         io_manager_key (Optional[str]): The key for the IOManager that will be used to load the contents of

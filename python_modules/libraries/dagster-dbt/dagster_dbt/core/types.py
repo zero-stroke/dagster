@@ -15,7 +15,7 @@ class DbtCliOutput(DbtOutput):
     Note that users should not construct instances of this class directly. This class is intended
     to be constructed from the JSON output of dbt commands.
 
-    Attributes:
+    Args:
         command (str): The full shell command that was executed.
         return_code (int): The return code of the dbt CLI process.
         raw_output (str): The raw output (``stdout``) of the dbt CLI process.

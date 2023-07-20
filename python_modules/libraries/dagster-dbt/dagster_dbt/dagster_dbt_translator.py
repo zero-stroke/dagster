@@ -165,7 +165,7 @@ class DagsterDbtTranslator:
 class KeyPrefixDagsterDbtTranslator(DagsterDbtTranslator):
     """A DagsterDbtTranslator that applies prefixes to the asset keys generated from dbt resources.
 
-    Attributes:
+    Args:
         asset_key_prefix (Optional[Union[str, Sequence[str]]]): A prefix to apply to all dbt models,
             seeds, snapshots, etc. This will *not* apply to dbt sources.
         source_asset_key_prefix (Optional[Union[str, Sequence[str]]]): A prefix to apply to all dbt

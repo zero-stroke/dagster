@@ -1,7 +1,7 @@
 import inspect
 import json
 import textwrap
-from typing import Any, List, Tuple, Type, Union, cast
+from typing import Any, List, Sequence, Tuple, Type, Union, cast
 
 import dagster._check as check
 import docutils.nodes
@@ -170,6 +170,12 @@ class ConfigurableDocumenter(DataDocumenter):
         super().add_content(more_content)
 
 
+def record_error(self, env, message: str) -> None:
+    if not hasattr(env, "dagster_errors"):
+        env.dagster_errors = []
+    env.dagster_errors.append(message)
+
+
 class DagsterClassDocumenter(ClassDocumenter):
     """Overrides the default autodoc ClassDocumenter to adds some extra options."""
 
@@ -183,11 +189,6 @@ class DagsterClassDocumenter(ClassDocumenter):
         source_name = self.get_sourcename()
         for alias in self.options.get("deprecated_aliases", []):
             self.add_line(f"ALIAS: {alias}", source_name)
-
-    def record_error(self, message: str) -> None:
-        if not hasattr(self.env, "dagster_errors"):
-            self.env.dagster_errors = []
-        self.env.dagster_errors.append(message)
 
     def get_object_members(self, want_all: bool) -> Tuple[bool, ObjectMembers]:
         _, unfiltered_members = super().get_object_members(want_all)
@@ -210,13 +211,21 @@ class DagsterClassDocumenter(ClassDocumenter):
                     "All public methods and properties must have docstrings."
                 )
                 logger.info(msg)
-                self.record_error(msg)
+                self.record_error(self.env, msg)
         return False, filtered_members
+
+
+def has_attrs(docstring: Sequence[str]) -> bool:
+    return any(line.startswith(".. attribute::") for line in docstring)
 
 
 # This is a hook that will be executed for every processed docstring. It modifies the lines of the
 # docstring in place.
 def process_docstring(app, what, name, obj, options, lines):
+    if has_attrs(lines):
+        message = f'Object {name} has "Attributes:" in docstring. Use "Args:" insetad.'
+        record_error(app.env, message)
+
     # Insert a "deprecated" sphinx directive (this is built-in to autodoc) for objects flagged with
     # @deprecated.
     if is_deprecated(obj):

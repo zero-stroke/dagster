@@ -50,7 +50,7 @@ from .partition_key_range import PartitionKeyRange
 class TimeWindow(NamedTuple):
     """An interval that is closed at the start and open at the end.
 
-    Attributes:
+    Args:
         start (datetime): A pendulum datetime that marks the start of the window.
         end (datetime): A pendulum datetime that marks the end of the window.
     """

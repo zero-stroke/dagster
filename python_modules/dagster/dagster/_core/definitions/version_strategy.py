@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 class OpVersionContext(NamedTuple):
     """Provides execution-time information for computing the version for an op.
 
-    Attributes:
+    Args:
         op_def (OpDefinition): The definition of the op to compute a version for.
         op_config (Any): The parsed config to be passed to the op during execution.
     """
@@ -25,7 +25,7 @@ class OpVersionContext(NamedTuple):
 class ResourceVersionContext(NamedTuple):
     """Provides execution-time information for computing the version for a resource.
 
-    Attributes:
+    Args:
         resource_def (ResourceDefinition): The definition of the resource whose version will be computed.
         resource_config (Any): The parsed config to be passed to the resource during execution.
     """
