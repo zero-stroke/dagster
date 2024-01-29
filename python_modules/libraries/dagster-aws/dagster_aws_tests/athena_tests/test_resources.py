@@ -7,7 +7,7 @@ from dagster_aws.athena.resources import (
     ResourceWithAthenaConfig,
     fake_athena_resource,
 )
-from moto import mock_athena
+from moto import mock_aws
 
 
 class TestAthenaClientResource(ResourceWithAthenaConfig):
