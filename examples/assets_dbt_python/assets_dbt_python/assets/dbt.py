@@ -16,7 +16,6 @@ dbt_manifest_path = dbt_parse_invocation.target_path.joinpath("manifest.json")
 
 
 class CustomDagsterDbtTranslator(DagsterDbtTranslator):
-
     def get_asset_key(self, dbt_resource_props: Mapping[str, Any]) -> AssetKey:
         asset_key = super().get_asset_key(dbt_resource_props)
 
