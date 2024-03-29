@@ -235,8 +235,7 @@ def select_unique_ids_from_manifest(
     import dbt.graph.cli as graph_cli
     import dbt.graph.selector as graph_selector
     from dbt.contracts.graph.manifest import Manifest
-    from dbt.flags import GLOBAL_FLAGS
-    from dbt.graph.selector_spec import IndirectSelection, SelectionSpec
+    from dbt.graph.selector_spec import SelectionSpec
     from networkx import DiGraph
 
     # NOTE: this was faster than calling `Manifest.from_dict`, so we are keeping this.
@@ -285,8 +284,8 @@ def select_unique_ids_from_manifest(
     graph = graph_selector.Graph(DiGraph(incoming_graph_data=child_map))
 
     # create a parsed selection from the select string
-    setattr(GLOBAL_FLAGS, "INDIRECT_SELECTION", IndirectSelection.Eager)
-    setattr(GLOBAL_FLAGS, "WARN_ERROR", True)
+    # setattr(GLOBAL_FLAGS, "INDIRECT_SELECTION", IndirectSelection.Eager)
+    # setattr(GLOBAL_FLAGS, "WARN_ERROR", True)
     parsed_spec: SelectionSpec = graph_cli.parse_union([select], True)
 
     if exclude:

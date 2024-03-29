@@ -47,7 +47,7 @@ from dagster._core.definitions.metadata import (
 )
 from dagster._core.errors import DagsterExecutionInterruptedError, DagsterInvalidPropertyError
 from dbt.adapters.base.impl import BaseAdapter
-from dbt.adapters.factory import FACTORY
+from dbt.adapters.factory import get_adapter, register_adapter
 from dbt.cli.context import make_context
 from dbt.cli.requires import preflight, profile, project
 from dbt.config import RuntimeConfig
@@ -96,6 +96,18 @@ PARTIAL_PARSE_FILE_NAME = "partial_parse.msgpack"
 DAGSTER_DBT_TERMINATION_TIMEOUT_SECONDS = 2
 
 DBT_EMPTY_INDIRECT_SELECTION: Final[str] = "empty"
+
+
+@dataclass
+class RuntimeConfigArgs:
+    project_dir: str
+    profiles_dir: str
+    threads: Optional[int]
+    limit: Optional[int]
+    single_threaded: bool
+    profile: Optional[str]
+    target: Optional[str]
+    vars: Dict[str, str]
 
 
 def _get_dbt_target_path() -> Path:
@@ -1020,9 +1032,30 @@ class DbtCliResource(ConfigurableResource):
         )
 
         # Initialize the dbt adapter.
-        FACTORY.register_adapter(config)
-        adapter = cast(BaseAdapter, FACTORY.lookup_adapter(config.credentials.type))
+        register_adapter(config)
+        adapter = cast(BaseAdapter, get_adapter(config))
         os.chdir(path=current_path)
+        return adapter
+
+    def _initialize_adapter_2(self):
+        args = RuntimeConfigArgs(
+            project_dir=self.project_dir,
+            profiles_dir=self.profiles_dir if self.profiles_dir else self.project_dir,
+            threads=None,
+            limit=None,
+            single_threaded=False,
+            profile=self.profile,
+            target=self.target,
+            vars={},
+        )
+
+        owd = os.getcwd()
+        os.chdir(self.project_dir)
+        config = RuntimeConfig.from_args(args)
+        os.chdir(owd)
+
+        register_adapter(config)
+        adapter = cast(BaseAdapter, get_adapter(config))
         return adapter
 
     @public
@@ -1245,6 +1278,7 @@ class DbtCliResource(ConfigurableResource):
         if not target_path.is_absolute():
             target_path = project_dir.joinpath(target_path)
 
+        # adapter = self._initialize_adapter_2()
         adapter = self._initialize_adapter(args)
 
         return DbtCliInvocation.run(
