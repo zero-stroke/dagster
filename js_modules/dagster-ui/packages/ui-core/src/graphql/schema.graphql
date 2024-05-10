@@ -2495,6 +2495,7 @@ enum InstigationType {
   SCHEDULE
   SENSOR
   AUTO_MATERIALIZE
+  BACKFILL
 }
 
 type InstigationStateNotFoundError implements Error {
@@ -2772,6 +2773,15 @@ type PartitionBackfill {
   hasResumePermission: Boolean!
   user: String
   tags: [PipelineTag!]!
+  ticks(
+    dayRange: Int
+    dayOffset: Int
+    limit: Int
+    cursor: String
+    statuses: [InstigationTickStatus!]
+    beforeTimestamp: Float
+    afterTimestamp: Float
+  ): [InstigationTick!]!
 }
 
 enum BulkActionStatus {
