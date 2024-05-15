@@ -87,7 +87,14 @@ export const ScheduleRoot = (props: Props) => {
               />
             ) : null}
             {selectedTab === 'ticks' ? (
-              <TicksTable tabs={tabs} repoAddress={repoAddress} name={scheduleOrError.name} />
+              <TicksTable
+                tabs={tabs}
+                tickSource={{
+                  repositoryLocationName: repoAddress.location,
+                  repositoryName: repoAddress.name,
+                  name: scheduleOrError.name,
+                }}
+              />
             ) : (
               <SchedulePreviousRuns
                 repoAddress={repoAddress}

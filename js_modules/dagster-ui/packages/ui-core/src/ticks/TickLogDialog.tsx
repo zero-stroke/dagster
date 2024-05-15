@@ -1,4 +1,3 @@
-import {gql, useQuery} from '@apollo/client';
 import {
   Box,
   Button,
@@ -12,12 +11,9 @@ import {
 } from '@dagster-io/ui-components';
 import {useContext} from 'react';
 
-import {
-  TickLogEventFragment,
-  TickLogEventsQuery,
-  TickLogEventsQueryVariables,
-} from './types/TickLogDialog.types';
-import {InstigationSelector} from '../graphql/types';
+import {TickLogEventFragment} from './types/useTickWithLogs.types';
+import {TickSource, useTickWithLogs} from './useTickWithLogs';
+import {InstigationType} from '../graphql/types';
 import {HistoryTickFragment} from '../instigation/types/InstigationUtils.types';
 import {EventTypeColumn, Row, TimestampColumn} from '../runs/LogsRowComponents';
 import {
@@ -31,23 +27,14 @@ import {TimestampDisplay} from '../schedules/TimestampDisplay';
 
 export const TickLogDialog = ({
   tick,
-  instigationSelector,
+  tickSource,
   onClose,
 }: {
   tick: HistoryTickFragment;
-  instigationSelector: InstigationSelector;
+  tickSource: TickSource;
   onClose: () => void;
 }) => {
-  const {data} = useQuery<TickLogEventsQuery, TickLogEventsQueryVariables>(TICK_LOG_EVENTS_QUERY, {
-    variables: {instigationSelector, tickId: Number(tick.tickId)},
-    notifyOnNetworkStatusChange: true,
-  });
-
-  const events =
-    data?.instigationStateOrError.__typename === 'InstigationState' &&
-    data?.instigationStateOrError.tick
-      ? data?.instigationStateOrError.tick.logEvents.events
-      : undefined;
+  const {events} = useTickWithLogs({tick, tickSource});
 
   return (
     <Dialog
@@ -79,35 +66,19 @@ export const TickLogDialog = ({
 
 interface TickLogTableProps {
   tick: HistoryTickFragment;
-  instigationSelector: InstigationSelector;
+  tickSource: TickSource;
 }
 
-export const QueryfulTickLogsTable = ({instigationSelector, tick}: TickLogTableProps) => {
-  const {data, loading} = useQuery<TickLogEventsQuery, TickLogEventsQueryVariables>(
-    TICK_LOG_EVENTS_QUERY,
-    {
-      variables: {instigationSelector, tickId: Number(tick.tickId)},
-    },
-  );
-
-  const events =
-    data?.instigationStateOrError.__typename === 'InstigationState' &&
-    data?.instigationStateOrError.tick
-      ? data?.instigationStateOrError.tick.logEvents.events
-      : undefined;
+export const QueryfulTickLogsTable = ({tick, tickSource}: TickLogTableProps) => {
+  const {result, events, loading} = useTickWithLogs({tick, tickSource});
 
   if (events && events.length) {
     return <TickLogsTable events={events} />;
   }
 
-  const tickStatus =
-    data?.instigationStateOrError.__typename === 'InstigationState'
-      ? data?.instigationStateOrError.tick.status
-      : undefined;
+  const tickStatus = result?.tick.status;
   const instigationType =
-    data?.instigationStateOrError.__typename === 'InstigationState'
-      ? data?.instigationStateOrError.instigationType
-      : undefined;
+    result?.__typename === 'PartitionBackfill' ? InstigationType.BACKFILL : result?.instigationType;
   const instigationLoggingDocsUrl =
     instigationType === 'SENSOR'
       ? 'https://docs.dagster.io/concepts/partitions-schedules-sensors/sensors#logging-in-sensors'
@@ -210,30 +181,3 @@ const TickLogRow = ({event}: {event: TickLogEventFragment}) => {
     </Row>
   );
 };
-
-const TICK_LOG_EVENTS_QUERY = gql`
-  query TickLogEventsQuery($instigationSelector: InstigationSelector!, $tickId: Int!) {
-    instigationStateOrError(instigationSelector: $instigationSelector) {
-      ... on InstigationState {
-        id
-        instigationType
-        tick(tickId: $tickId) {
-          id
-          status
-          timestamp
-          logEvents {
-            events {
-              ...TickLogEvent
-            }
-          }
-        }
-      }
-    }
-  }
-
-  fragment TickLogEvent on InstigationEvent {
-    message
-    timestamp
-    level
-  }
-`;

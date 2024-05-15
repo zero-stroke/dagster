@@ -284,6 +284,10 @@ class GraphenePartitionBackfill(graphene.ObjectType):
     hasResumePermission = graphene.NonNull(graphene.Boolean)
     user = graphene.Field(graphene.String)
     tags = non_null_list("dagster_graphql.schema.tags.GraphenePipelineTag")
+    tick = graphene.Field(
+        graphene.NonNull(GrapheneInstigationTick),
+        tickId=graphene.NonNull(graphene.Int),
+    )
     ticks = graphene.Field(
         non_null_list(GrapheneInstigationTick),
         dayRange=graphene.Int(),
@@ -495,12 +499,22 @@ class GraphenePartitionBackfill(graphene.ObjectType):
     def resolve_user(self, _graphene_info: ResolveInfo) -> Optional[str]:
         return self._backfill_job.user
 
+    def resolve_tick(
+        self,
+        graphene_info: ResolveInfo,
+        tickId: int,
+    ) -> GrapheneInstigationTick:
+        schedule_storage = check.not_none(graphene_info.context.instance.schedule_storage)
+        tick = schedule_storage.get_tick(tickId)
+        return GrapheneInstigationTick(tick)
+
     def resolve_ticks(
         self,
         graphene_info,
         dayRange=None,
         dayOffset=None,
         limit=None,
+        cursor=None,
         statuses=None,
         beforeTimestamp=None,
         afterTimestamp=None,
@@ -518,7 +532,7 @@ class GraphenePartitionBackfill(graphene.ObjectType):
             dayRange=dayRange,
             dayOffset=dayOffset,
             limit=limit,
-            cursor=None,
+            cursor=cursor,
             status_strings=statuses,
             # maybe we pull the timestamp and endTimestamp from this objet
             before=beforeTimestamp,

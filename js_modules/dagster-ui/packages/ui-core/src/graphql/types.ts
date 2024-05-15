@@ -3058,6 +3058,7 @@ export type PartitionBackfill = {
   runs: Array<Run>;
   status: BulkActionStatus;
   tags: Array<PipelineTag>;
+  tick: InstigationTick;
   ticks: Array<InstigationTick>;
   timestamp: Scalars['Float']['output'];
   unfinishedRuns: Array<Run>;
@@ -3070,6 +3071,10 @@ export type PartitionBackfillPartitionsTargetedForAssetKeyArgs = {
 
 export type PartitionBackfillRunsArgs = {
   limit?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type PartitionBackfillTickArgs = {
+  tickId: Scalars['Int']['input'];
 };
 
 export type PartitionBackfillTicksArgs = {
@@ -10641,6 +10646,12 @@ export const buildPartitionBackfill = (
         ? overrides.status!
         : BulkActionStatus.CANCELED,
     tags: overrides && overrides.hasOwnProperty('tags') ? overrides.tags! : [],
+    tick:
+      overrides && overrides.hasOwnProperty('tick')
+        ? overrides.tick!
+        : relationshipsToOmit.has('InstigationTick')
+        ? ({} as InstigationTick)
+        : buildInstigationTick({}, relationshipsToOmit),
     ticks: overrides && overrides.hasOwnProperty('ticks') ? overrides.ticks! : [],
     timestamp: overrides && overrides.hasOwnProperty('timestamp') ? overrides.timestamp! : 8.28,
     unfinishedRuns:

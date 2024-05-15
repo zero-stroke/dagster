@@ -10,6 +10,7 @@ import {Route} from '../app/Route';
 import {AutomaterializationRoot} from '../assets/auto-materialization/AutomaterializationRoot';
 import {InstanceBackfillsRoot} from '../instance/InstanceBackfillsRoot';
 import {BackfillPage} from '../instance/backfill/BackfillPage';
+import {ExecutionPage} from '../instance/execution/ExecutionPage';
 
 export const OverviewRoot = () => {
   const {flagSettingsPage} = useFeatureFlags();
@@ -38,6 +39,16 @@ export const OverviewRoot = () => {
         path="/overview/automation"
         render={() =>
           flagSettingsPage ? <Redirect to="/automation" /> : <AutomaterializationRoot />
+        }
+      />
+      <Route
+        path="/overview/executions/:backfillId"
+        render={({match}) =>
+          flagSettingsPage ? (
+            <Redirect to={`/automation/backfills/${match.params.backfillId}`} />
+          ) : (
+            <ExecutionPage />
+          )
         }
       />
       <Route

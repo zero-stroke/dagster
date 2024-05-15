@@ -14,7 +14,6 @@ import {
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import {useEffect, useReducer} from 'react';
 import {Link, useHistory, useParams} from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -40,6 +39,7 @@ import {AssetKey, BulkActionStatus, RunStatus} from '../../graphql/types';
 import {useDocumentTitle} from '../../hooks/useDocumentTitle';
 import {RunFilterToken, runsPathWithFilters} from '../../runs/RunsFilterInput';
 import {testId} from '../../testing/testId';
+import {Duration} from '../../ui/Duration';
 
 dayjs.extend(duration);
 dayjs.extend(relativeTime);
@@ -375,21 +375,6 @@ const Label = styled.div`
   line-height: 16px;
 `;
 
-const Duration = ({start, end}: {start: number; end?: number | null}) => {
-  const [_, rerender] = useReducer((s: number, _: any) => s + 1, 0);
-  useEffect(() => {
-    if (end) {
-      return;
-    }
-    // re-render once a minute to update the "time ago"
-    const intervalId = setInterval(rerender, 60000);
-    return () => clearInterval(intervalId);
-  }, [start, end]);
-  const duration = end ? end - start : Date.now() - start;
-
-  return <span>{formatDuration(duration)}</span>;
-};
-
 export const BACKFILL_DETAILS_QUERY = gql`
   query BackfillStatusesByAsset($backfillId: String!) {
     partitionBackfillOrError(backfillId: $backfillId) {
@@ -461,23 +446,3 @@ export const BACKFILL_PARTITIONS_FOR_ASSET_KEY_QUERY = gql`
     }
   }
 `;
-
-const formatDuration = (duration: number) => {
-  const seconds = Math.floor((duration / 1000) % 60);
-  const minutes = Math.floor((duration / (1000 * 60)) % 60);
-  const hours = Math.floor((duration / (1000 * 60 * 60)) % 24);
-  const days = Math.floor(duration / (1000 * 60 * 60 * 24));
-
-  let result = '';
-  if (days > 0) {
-    result += `${days}d `;
-    result += `${hours}h`;
-  } else if (hours > 0) {
-    result += `${hours}h `;
-    result += `${minutes}m`;
-  } else if (minutes > 0) {
-    result += `${minutes}m `;
-    result += `${seconds}s`;
-  }
-  return result.trim();
-};

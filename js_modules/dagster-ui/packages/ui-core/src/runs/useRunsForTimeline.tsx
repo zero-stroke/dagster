@@ -14,7 +14,11 @@ import {repoAddressAsHumanString} from '../workspace/repoAddressAsString';
 import {RepoAddress} from '../workspace/types';
 import {workspacePipelinePath} from '../workspace/workspacePath';
 
-export const useRunsForTimeline = (range: [number, number], runsFilter: RunsFilter = {}) => {
+export const useRunsForTimeline = (
+  range: [number, number],
+  runsFilter: RunsFilter = {},
+  includeTicks: boolean = true,
+) => {
   const [start, end] = range;
 
   const startSec = start / 1000.0;
@@ -38,8 +42,8 @@ export const useRunsForTimeline = (range: [number, number], runsFilter: RunsFilt
         createdBefore: endSec,
         updatedAfter: startSec,
       },
-      tickCursor: startSec,
-      ticksUntil: endSec,
+      tickCursor: includeTicks ? startSec : 0,
+      ticksUntil: includeTicks ? endSec : 0,
     },
   });
 

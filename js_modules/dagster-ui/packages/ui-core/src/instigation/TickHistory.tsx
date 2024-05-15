@@ -8,6 +8,7 @@ import {
   Checkbox,
   Colors,
   CursorHistoryControls,
+  CursorPaginationProps,
   FontFamily,
   Icon,
   IconWrapper,
@@ -27,7 +28,12 @@ import {HISTORY_TICK_FRAGMENT, RUN_STATUS_FRAGMENT, RunStatusLink} from './Insti
 import {LiveTickTimeline} from './LiveTickTimeline2';
 import {TickDetailsDialog} from './TickDetailsDialog';
 import {HistoryTickFragment} from './types/InstigationUtils.types';
-import {TickHistoryQuery, TickHistoryQueryVariables} from './types/TickHistory.types';
+import {
+  BackfillTickHistoryQuery,
+  BackfillTickHistoryQueryVariables,
+  JobTickHistoryQuery,
+  JobTickHistoryQueryVariables,
+} from './types/TickHistory.types';
 import {countPartitionsAddedOrDeleted, isStuckStartedTick, truncate} from './util';
 import {showSharedToaster} from '../app/DomUtils';
 import {PYTHON_ERROR_FRAGMENT} from '../app/PythonErrorFragment';
@@ -47,8 +53,7 @@ import {useCursorPaginatedQuery} from '../runs/useCursorPaginatedQuery';
 import {TimestampDisplay} from '../schedules/TimestampDisplay';
 import {TickLogDialog} from '../ticks/TickLogDialog';
 import {TickStatusTag} from '../ticks/TickStatusTag';
-import {repoAddressToSelector} from '../workspace/repoAddressToSelector';
-import {RepoAddress} from '../workspace/types';
+import {TickSource} from '../ticks/useTickWithLogs';
 
 Chart.register(zoomPlugin);
 
@@ -75,19 +80,7 @@ const STATUS_TEXT_MAP = {
   [InstigationTickStatus.SKIPPED]: 'Skipped',
 };
 
-export const TicksTable = ({
-  name,
-  repoAddress,
-  tabs,
-  setTimerange,
-  setParentStatuses,
-}: {
-  name: string;
-  repoAddress: RepoAddress;
-  tabs?: React.ReactElement;
-  setTimerange?: (range?: [number, number]) => void;
-  setParentStatuses?: (statuses?: InstigationTickStatus[]) => void;
-}) => {
+function useQueryPersistedShownStatuses() {
   const [shownStates, setShownStates] = useQueryPersistedState<ShownStatusState>({
     encode: (states) => {
       const queryState = {};
@@ -108,7 +101,6 @@ export const TicksTable = ({
     },
   });
 
-  const instigationSelector = {...repoAddressToSelector(repoAddress), name};
   const statuses = React.useMemo(
     () =>
       Object.keys(shownStates)
@@ -117,10 +109,35 @@ export const TicksTable = ({
     [shownStates],
   );
 
-  const {queryResult, paginationProps} = useCursorPaginatedQuery<
-    TickHistoryQuery,
-    TickHistoryQueryVariables
+  return {shownStates, setShownStates, statuses};
+}
+
+type TicksQuerystringState = ReturnType<typeof useQueryPersistedShownStatuses>;
+
+export const TicksTable = ({
+  tickSource,
+  tabs,
+  setTimerange,
+  setParentStatuses,
+}: {
+  tickSource: TickSource;
+  tabs?: React.ReactElement;
+  setTimerange?: (range?: [number, number]) => void;
+  setParentStatuses?: (statuses?: InstigationTickStatus[]) => void;
+}) => {
+  const querystringState = useQueryPersistedShownStatuses();
+
+  const queryInstigation = useCursorPaginatedQuery<
+    JobTickHistoryQuery,
+    JobTickHistoryQueryVariables
   >({
+    skip: 'backfillId' in tickSource,
+    query: JOB_TICK_HISTORY_QUERY,
+    pageSize: PAGE_SIZE,
+    variables: {
+      instigationSelector: tickSource as InstigationSelector,
+      statuses: querystringState.statuses,
+    },
     nextCursorForResult: (data) => {
       if (data.instigationStateOrError.__typename !== 'InstigationState') {
         return undefined;
@@ -133,22 +150,111 @@ export const TicksTable = ({
       }
       return data.instigationStateOrError.ticks;
     },
-    variables: {
-      instigationSelector,
-      statuses,
-    },
-    query: JOB_TICK_HISTORY_QUERY,
-    pageSize: PAGE_SIZE,
   });
-  useBlockTraceOnQueryResult(queryResult, 'TickHistoryQuery');
+
+  const queryBackfill = useCursorPaginatedQuery<
+    BackfillTickHistoryQuery,
+    BackfillTickHistoryQueryVariables
+  >({
+    skip: !('backfillId' in tickSource),
+    query: BACKFILL_TICK_HISTORY_QUERY,
+    pageSize: PAGE_SIZE,
+    variables: {
+      backfillId: 'backfillId' in tickSource ? tickSource.backfillId : '',
+      statuses: querystringState.statuses,
+    },
+    nextCursorForResult: (data) => {
+      if (data.partitionBackfillOrError.__typename !== 'PartitionBackfill') {
+        return undefined;
+      }
+      return data.partitionBackfillOrError.ticks[PAGE_SIZE - 1]?.id;
+    },
+    getResultArray: (data) => {
+      if (!data || data.partitionBackfillOrError.__typename !== 'PartitionBackfill') {
+        return [];
+      }
+      return data.partitionBackfillOrError.ticks;
+    },
+  });
+
+  const {queryResult, paginationProps} =
+    'backfillId' in tickSource ? queryBackfill : queryInstigation;
+
+  useBlockTraceOnQueryResult(queryResult, 'JobTickHistoryQuery');
 
   useQueryRefreshAtInterval(queryResult, FIFTEEN_SECONDS);
 
-  const state = queryResult?.data?.instigationStateOrError;
-  const ticks = React.useMemo(
-    () => (state?.__typename === 'InstigationState' ? state.ticks : []),
-    [state],
+  const {data, loading} = queryResult;
+
+  if (!data) {
+    return (
+      <Box padding={{vertical: 48}}>
+        <Spinner purpose="page" />
+      </Box>
+    );
+  }
+
+  const result =
+    'instigationStateOrError' in data
+      ? data.instigationStateOrError
+      : data.partitionBackfillOrError;
+
+  if (result.__typename === 'PythonError') {
+    return <PythonErrorInfo error={result} />;
+  }
+
+  if (
+    result.__typename === 'InstigationStateNotFoundError' ||
+    result.__typename === 'BackfillNotFoundError'
+  ) {
+    return (
+      <Box padding={{vertical: 32}} flex={{justifyContent: 'center'}}>
+        <NonIdealState icon="no-results" title="No ticks to display" />
+      </Box>
+    );
+  }
+
+  return (
+    <TicksTableContent
+      ticks={result.ticks}
+      tickSource={tickSource}
+      instigationType={
+        result.__typename === 'PartitionBackfill'
+          ? InstigationType.BACKFILL
+          : result.instigationType
+      }
+      paginationProps={paginationProps}
+      tabs={tabs}
+      setTimerange={setTimerange}
+      setParentStatuses={setParentStatuses}
+      loading={loading}
+      querystringState={querystringState}
+    />
   );
+};
+
+const TicksTableContent = ({
+  ticks,
+  tickSource,
+  paginationProps,
+  instigationType,
+  tabs,
+  querystringState,
+  setTimerange,
+  setParentStatuses,
+  loading,
+}: {
+  ticks: HistoryTickFragment[];
+  tickSource: TickSource;
+  instigationType: InstigationType;
+  paginationProps: CursorPaginationProps;
+  querystringState: TicksQuerystringState;
+  tabs?: React.ReactElement;
+  setTimerange?: (range?: [number, number]) => void;
+  setParentStatuses?: (statuses?: InstigationTickStatus[]) => void;
+  loading?: boolean;
+}) => {
+  const {statuses, shownStates, setShownStates} = querystringState;
 
   React.useEffect(() => {
     if (paginationProps.hasPrevCursor) {
@@ -173,37 +279,14 @@ export const TicksTable = ({
   }, [paginationProps.hasPrevCursor, setParentStatuses, statuses]);
 
   React.useEffect(() => {
-    if (paginationProps.hasPrevCursor && !ticks.length && !queryResult.loading) {
+    if (paginationProps.hasPrevCursor && !ticks.length && !loading) {
       paginationProps.reset();
     }
     // paginationProps.reset isn't memoized
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ticks, queryResult.loading, paginationProps.hasPrevCursor]);
+  }, [ticks, loading, paginationProps.hasPrevCursor]);
 
   const [logTick, setLogTick] = React.useState<InstigationTick>();
-  const {data} = queryResult;
-
-  if (!data) {
-    return (
-      <Box padding={{vertical: 48}}>
-        <Spinner purpose="page" />
-      </Box>
-    );
-  }
-
-  if (data.instigationStateOrError.__typename === 'PythonError') {
-    return <PythonErrorInfo error={data.instigationStateOrError} />;
-  }
-
-  if (data.instigationStateOrError.__typename === 'InstigationStateNotFoundError') {
-    return (
-      <Box padding={{vertical: 32}} flex={{justifyContent: 'center'}}>
-        <NonIdealState icon="no-results" title="No ticks to display" />
-      </Box>
-    );
-  }
-
-  const {instigationType} = data.instigationStateOrError;
 
   if (!ticks.length && statuses.length === Object.keys(DEFAULT_SHOWN_STATUS_STATE).length) {
     return null;
@@ -224,11 +307,11 @@ export const TicksTable = ({
       {logTick ? (
         <TickLogDialog
           tick={logTick}
-          instigationSelector={instigationSelector}
+          tickSource={tickSource}
           onClose={() => setLogTick(undefined)}
         />
       ) : null}
-      <Box padding={{vertical: 8, horizontal: 24}}>
+      <Box padding={{vertical: 12, horizontal: 24}}>
         <Box flex={{direction: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
           {tabs}
           <Box flex={{direction: 'row', gap: 16}}>
@@ -254,12 +337,7 @@ export const TicksTable = ({
           </thead>
           <tbody>
             {ticks.map((tick, index) => (
-              <TickRow
-                key={tick.id}
-                tick={tick}
-                instigationSelector={instigationSelector}
-                index={index}
-              />
+              <TickRow key={tick.id} tick={tick} tickSource={tickSource} index={index} />
             ))}
           </tbody>
         </TableWrapper>
@@ -278,15 +356,13 @@ export const TicksTable = ({
 };
 
 export const TickHistoryTimeline = ({
-  name,
-  repoAddress,
+  tickSource,
   onHighlightRunIds,
   beforeTimestamp,
   afterTimestamp,
   statuses,
 }: {
-  name: string;
-  repoAddress: RepoAddress;
+  tickSource: TickSource;
   onHighlightRunIds?: (runIds: string[]) => void;
   beforeTimestamp?: number;
   afterTimestamp?: number;
@@ -299,23 +375,38 @@ export const TickHistoryTimeline = ({
 
   const [pollingPaused, pausePolling] = React.useState<boolean>(false);
 
-  const instigationSelector = {...repoAddressToSelector(repoAddress), name};
-  const queryResult = useQuery<TickHistoryQuery, TickHistoryQueryVariables>(
+  const queryResultInstigation = useQuery<JobTickHistoryQuery, JobTickHistoryQueryVariables>(
     JOB_TICK_HISTORY_QUERY,
     {
+      skip: 'backfillId' in tickSource,
       variables: {
-        instigationSelector,
         beforeTimestamp,
         afterTimestamp,
         statuses,
+        instigationSelector: tickSource as InstigationSelector,
+        limit: beforeTimestamp ? undefined : 15,
+      },
+      notifyOnNetworkStatusChange: true,
+    },
+  );
+  const queryResultBackfill = useQuery<BackfillTickHistoryQuery, BackfillTickHistoryQueryVariables>(
+    BACKFILL_TICK_HISTORY_QUERY,
+    {
+      skip: !('backfillId' in tickSource),
+      variables: {
+        beforeTimestamp,
+        afterTimestamp,
+        statuses,
+        backfillId: 'backfillId' in tickSource ? tickSource.backfillId : '',
         limit: beforeTimestamp ? undefined : 15,
       },
       notifyOnNetworkStatusChange: true,
     },
   );
 
-  useBlockTraceOnQueryResult(queryResult, 'TickHistoryQuery');
+  const queryResult = 'backfillId' in tickSource ? queryResultBackfill : queryResultInstigation;
 
+  useBlockTraceOnQueryResult(queryResult, 'TickHistoryQuery');
   useQueryRefreshAtInterval(
     queryResult,
     1000,
@@ -326,8 +417,8 @@ export const TickHistoryTimeline = ({
   if (!data || error) {
     return (
       <>
-        <Box padding={{top: 16, horizontal: 24}} border="bottom">
-          <Subheading>Recent ticks</Subheading>
+        <Box padding={{vertical: 16, horizontal: 24}} border="bottom">
+          <Subheading>Tick timeline</Subheading>
         </Box>
         <Box padding={{vertical: 64}}>
           <Spinner purpose="section" />
@@ -336,16 +427,24 @@ export const TickHistoryTimeline = ({
     );
   }
 
-  if (data.instigationStateOrError.__typename === 'PythonError') {
-    return <PythonErrorInfo error={data.instigationStateOrError} />;
+  const result =
+    'instigationStateOrError' in data
+      ? data.instigationStateOrError
+      : data.partitionBackfillOrError;
+
+  if (result.__typename === 'PythonError') {
+    return <PythonErrorInfo error={result} />;
   }
-  if (data.instigationStateOrError.__typename === 'InstigationStateNotFoundError') {
+  if (result.__typename === 'InstigationStateNotFoundError') {
+    return null;
+  }
+  if (result.__typename === 'BackfillNotFoundError') {
     return null;
   }
 
   // Set it equal to an empty array in case of a weird error
   // https://elementl-workspace.slack.com/archives/C03CCE471E0/p1693237968395179?thread_ts=1693233109.602669&cid=C03CCE471E0
-  const {ticks = []} = data.instigationStateOrError;
+  const {ticks = []} = result;
 
   const onTickClick = (tick?: InstigationTick) => {
     setSelectedTickId(tick ? Number(tick.tickId) : undefined);
@@ -365,11 +464,11 @@ export const TickHistoryTimeline = ({
       <TickDetailsDialog
         isOpen={!!selectedTickId}
         tickId={selectedTickId}
-        instigationSelector={instigationSelector}
+        tickSource={tickSource}
         onClose={() => onTickClick(undefined)}
       />
       <Box padding={{vertical: 16, horizontal: 24}}>
-        <Subheading>Recent ticks</Subheading>
+        <Subheading>Tick timeline</Subheading>
       </Box>
       <Box border="top">
         <LiveTickTimeline
@@ -387,11 +486,11 @@ export const TickHistoryTimeline = ({
 
 function TickRow({
   tick,
-  instigationSelector,
+  tickSource,
   index,
 }: {
   tick: HistoryTickFragment;
-  instigationSelector: InstigationSelector;
+  tickSource: TickSource;
   index: number;
 }) {
   const copyToClipboard = useCopyToClipboard();
@@ -497,7 +596,7 @@ function TickRow({
           <TickDetailsDialog
             isOpen={showResults}
             tickId={Number(tick.tickId)}
-            instigationSelector={instigationSelector}
+            tickSource={tickSource}
             onClose={() => {
               setShowResults(false);
             }}
@@ -509,7 +608,7 @@ function TickRow({
 }
 
 const JOB_TICK_HISTORY_QUERY = gql`
-  query TickHistoryQuery(
+  query JobTickHistoryQuery(
     $instigationSelector: InstigationSelector!
     $dayRange: Int
     $limit: Int
@@ -522,6 +621,41 @@ const JOB_TICK_HISTORY_QUERY = gql`
       ... on InstigationState {
         id
         instigationType
+        ticks(
+          dayRange: $dayRange
+          limit: $limit
+          cursor: $cursor
+          statuses: $statuses
+          beforeTimestamp: $beforeTimestamp
+          afterTimestamp: $afterTimestamp
+        ) {
+          id
+          ...HistoryTick
+        }
+      }
+      ...PythonErrorFragment
+    }
+  }
+
+  ${RUN_STATUS_FRAGMENT}
+  ${PYTHON_ERROR_FRAGMENT}
+  ${TICK_TAG_FRAGMENT}
+  ${HISTORY_TICK_FRAGMENT}
+`;
+
+const BACKFILL_TICK_HISTORY_QUERY = gql`
+  query BackfillTickHistoryQuery(
+    $backfillId: String!
+    $dayRange: Int
+    $limit: Int
+    $cursor: String
+    $statuses: [InstigationTickStatus!]
+    $beforeTimestamp: Float
+    $afterTimestamp: Float
+  ) {
+    partitionBackfillOrError(backfillId: $backfillId) {
+      ... on PartitionBackfill {
+        id
         ticks(
           dayRange: $dayRange
           limit: $limit

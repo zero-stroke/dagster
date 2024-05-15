@@ -2774,6 +2774,7 @@ type PartitionBackfill {
   hasResumePermission: Boolean!
   user: String
   tags: [PipelineTag!]!
+  tick(tickId: Int!): InstigationTick!
   ticks(
     dayRange: Int
     dayOffset: Int

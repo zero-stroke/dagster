@@ -45,6 +45,15 @@ const MIN_DATE_WIDTH_PCT = 10;
 
 const ONE_HOUR_MSEC = 60 * 60 * 1000;
 
+export const CONSTANTS = {
+  ROW_HEIGHT,
+  DATE_TIME_HEIGHT,
+  TIME_HEADER_HEIGHT,
+  ONE_HOUR_MSEC,
+  EMPTY_STATE_HEIGHT,
+  LEFT_SIDE_SPACE_ALLOTTED,
+};
+
 export type TimelineRun = {
   id: string;
   status: RunStatus | 'SCHEDULED';
@@ -336,7 +345,12 @@ const timeOnlyOptions: Intl.DateTimeFormatOptions = {
   hour: 'numeric',
 };
 
-const TimeDividers = (props: TimeDividersProps) => {
+const timeOnlyOptionsWithMinute: Intl.DateTimeFormatOptions = {
+  hour: 'numeric',
+  minute: 'numeric',
+};
+
+export const TimeDividers = (props: TimeDividersProps) => {
   const {interval, range, height} = props;
   const [start, end] = range;
   const formatDateTime = useFormatDateTime();
@@ -389,7 +403,10 @@ const TimeDividers = (props: TimeDividersProps) => {
       .map((_, ii) => {
         const time = firstMarker + ii * interval;
         const date = new Date(time);
-        const label = formatDateTime(date, timeOnlyOptions).replace(' ', '');
+        const label =
+          interval < ONE_HOUR_MSEC
+            ? formatDateTime(date, timeOnlyOptionsWithMinute).replace(' ', '')
+            : formatDateTime(date, timeOnlyOptions).replace(' ', '');
         return {
           label,
           key: date.toString(),
@@ -525,7 +542,7 @@ const NowMarker = styled.div`
 const MIN_CHUNK_WIDTH = 4;
 const MIN_WIDTH_FOR_MULTIPLE = 12;
 
-const RunTimelineRow = ({
+export const RunTimelineRow = ({
   job,
   top,
   height,
@@ -561,7 +578,7 @@ const RunTimelineRow = ({
   }
 
   return (
-    <Row $height={height} $start={top}>
+    <TimelineRowContainer $height={height} $start={top}>
       <JobName>
         <Icon name={job.jobType === 'asset' ? 'asset' : 'job'} />
         <div style={{width: LABEL_WIDTH}}>
@@ -607,11 +624,11 @@ const RunTimelineRow = ({
           );
         })}
       </RunChunks>
-    </Row>
+    </TimelineRowContainer>
   );
 };
 
-const RunsEmptyOrLoading = (props: {loading: boolean; includesTicks: boolean}) => {
+export const RunsEmptyOrLoading = (props: {loading: boolean; includesTicks: boolean}) => {
   const {loading, includesTicks} = props;
 
   const content = () => {
@@ -656,14 +673,16 @@ const RunsEmptyOrLoading = (props: {loading: boolean; includesTicks: boolean}) =
   );
 };
 
-type RowProps = {$height: number; $start: number};
+type TimelineRowContainerProps = {$height: number; $start: number};
 
-const Row = styled.div.attrs<RowProps>(({$height, $start}) => ({
-  style: {
-    height: `${$height}px`,
-    transform: `translateY(${$start}px)`,
-  },
-}))<RowProps>`
+export const TimelineRowContainer = styled.div.attrs<TimelineRowContainerProps>(
+  ({$height, $start}) => ({
+    style: {
+      height: `${$height}px`,
+      transform: `translateY(${$start}px)`,
+    },
+  }),
+)<TimelineRowContainerProps>`
   align-items: center;
   box-shadow: inset 0 -1px 0 ${Colors.keylineDefault()};
   display: flex;
@@ -696,7 +715,7 @@ const JobName = styled.div`
   width: ${LEFT_SIDE_SPACE_ALLOTTED}px;
 `;
 
-const RunChunks = styled.div`
+export const RunChunks = styled.div`
   flex: 1;
   position: relative;
   height: ${ROW_HEIGHT}px;
@@ -707,7 +726,7 @@ interface ChunkProps {
   $multiple: boolean;
 }
 
-const RunChunk = styled.div<ChunkProps>`
+export const RunChunk = styled.div<ChunkProps>`
   align-items: center;
   background: ${({$background}) => $background};
   border-radius: 1px;

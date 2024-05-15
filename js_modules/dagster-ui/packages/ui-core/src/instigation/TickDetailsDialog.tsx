@@ -20,9 +20,13 @@ import {useMemo, useState} from 'react';
 import {RunList, TargetedRunList} from './InstigationTick';
 import {HISTORY_TICK_FRAGMENT} from './InstigationUtils';
 import {HistoryTickFragment} from './types/InstigationUtils.types';
-import {SelectedTickQuery, SelectedTickQueryVariables} from './types/TickDetailsDialog.types';
+import {
+  BackfillSelectedTickQuery,
+  BackfillSelectedTickQueryVariables,
+  JobSelectedTickQuery,
+  JobSelectedTickQueryVariables,
+} from './types/TickDetailsDialog.types';
 import {showCustomAlert} from '../app/CustomAlertProvider';
-import {PYTHON_ERROR_FRAGMENT} from '../app/PythonErrorFragment';
 import {PythonErrorInfo} from '../app/PythonErrorInfo';
 import {formatElapsedTimeWithoutMsec} from '../app/Util';
 import {Timestamp} from '../app/time/Timestamp';
@@ -35,20 +39,21 @@ import {
 } from '../graphql/types';
 import {TimestampDisplay} from '../schedules/TimestampDisplay';
 import {QueryfulTickLogsTable} from '../ticks/TickLogDialog';
+import {TickSource} from '../ticks/useTickWithLogs';
 
 interface DialogProps extends InnerProps {
   onClose: () => void;
   isOpen: boolean;
 }
 
-export const TickDetailsDialog = ({tickId, isOpen, instigationSelector, onClose}: DialogProps) => {
+export const TickDetailsDialog = ({tickId, isOpen, tickSource, onClose}: DialogProps) => {
   return (
     <Dialog
       isOpen={isOpen}
       onClose={onClose}
       style={{width: '80vw', maxWidth: '1200px', minWidth: '600px'}}
     >
-      <TickDetailsDialogImpl tickId={tickId} instigationSelector={instigationSelector} />
+      <TickDetailsDialogImpl tickId={tickId} tickSource={tickSource} />
       {/* The logs table uses z-index for the column lines. Create a new stacking index
       for the footer so that the lines don't sit above it. */}
       <div style={{zIndex: 1}}>
@@ -62,20 +67,38 @@ export const TickDetailsDialog = ({tickId, isOpen, instigationSelector, onClose}
 
 interface InnerProps {
   tickId: number | undefined;
-  instigationSelector: InstigationSelector;
+  tickSource: TickSource;
 }
 
-const TickDetailsDialogImpl = ({tickId, instigationSelector}: InnerProps) => {
+const TickDetailsDialogImpl = ({tickId, tickSource}: InnerProps) => {
   const [activeTab, setActiveTab] = useState<'result' | 'logs'>('result');
 
-  const {data} = useQuery<SelectedTickQuery, SelectedTickQueryVariables>(JOB_SELECTED_TICK_QUERY, {
-    variables: {instigationSelector, tickId: tickId || 0},
-    skip: !tickId,
+  const {data: dataInstigation} = useQuery<JobSelectedTickQuery, JobSelectedTickQueryVariables>(
+    JOB_SELECTED_TICK_QUERY,
+    {
+      variables: {
+        instigationSelector: tickSource as InstigationSelector,
+        tickId: tickId || 0,
+      },
+      skip: !tickId || 'backfillId' in tickSource,
+    },
+  );
+  const {data: dataBackfill} = useQuery<
+    BackfillSelectedTickQuery,
+    BackfillSelectedTickQueryVariables
+  >(BACKFILL_SELECTED_TICK_QUERY, {
+    variables: {
+      backfillId: 'backfillId' in tickSource ? tickSource.backfillId : '',
+      tickId: tickId || 0,
+    },
+    skip: !tickId || !('backfillId' in tickSource),
   });
 
   const tick =
-    data?.instigationStateOrError.__typename === 'InstigationState'
-      ? data?.instigationStateOrError.tick
+    dataInstigation?.instigationStateOrError.__typename === 'InstigationState'
+      ? dataInstigation?.instigationStateOrError.tick
+      : dataBackfill?.partitionBackfillOrError.__typename === 'PartitionBackfill'
+      ? dataBackfill?.partitionBackfillOrError.tick
       : undefined;
 
   const [addedPartitionRequests, deletedPartitionRequests] = useMemo(() => {
@@ -159,9 +182,7 @@ const TickDetailsDialogImpl = ({tickId, instigationSelector}: InnerProps) => {
           ) : null}
         </div>
       ) : null}
-      {activeTab === 'logs' ? (
-        <QueryfulTickLogsTable instigationSelector={instigationSelector} tick={tick} />
-      ) : null}
+      {activeTab === 'logs' ? <QueryfulTickLogsTable tickSource={tickSource} tick={tick} /> : null}
     </>
   );
 };
@@ -265,7 +286,7 @@ function PartitionsTable({partitions}: {partitions: DynamicPartitionsRequestResu
 }
 
 const JOB_SELECTED_TICK_QUERY = gql`
-  query SelectedTickQuery($instigationSelector: InstigationSelector!, $tickId: Int!) {
+  query JobSelectedTickQuery($instigationSelector: InstigationSelector!, $tickId: Int!) {
     instigationStateOrError(instigationSelector: $instigationSelector) {
       ... on InstigationState {
         id
@@ -276,7 +297,20 @@ const JOB_SELECTED_TICK_QUERY = gql`
       }
     }
   }
+  ${HISTORY_TICK_FRAGMENT}
+`;
 
-  ${PYTHON_ERROR_FRAGMENT}
+const BACKFILL_SELECTED_TICK_QUERY = gql`
+  query BackfillSelectedTickQuery($backfillId: String!, $tickId: Int!) {
+    partitionBackfillOrError(backfillId: $backfillId) {
+      ... on PartitionBackfill {
+        id
+        tick(tickId: $tickId) {
+          id
+          ...HistoryTick
+        }
+      }
+    }
+  }
   ${HISTORY_TICK_FRAGMENT}
 `;

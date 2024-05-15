@@ -179,7 +179,7 @@ const AssetSidebarLocationLabel = ({
   );
 };
 
-const FocusableLabelContainer = ({
+export const FocusableLabelContainer = ({
   isSelected,
   isLastSelected,
   icon,

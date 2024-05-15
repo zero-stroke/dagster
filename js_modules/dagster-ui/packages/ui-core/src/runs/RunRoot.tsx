@@ -167,6 +167,30 @@ export const RunRoot = () => {
 // eslint-disable-next-line import/no-default-export
 export default RunRoot;
 
+export const RunEmbedded = ({runId}: {runId: string}) => {
+  const queryResult = useQuery<RunRootQuery, RunRootQueryVariables>(RUN_ROOT_QUERY, {
+    variables: {runId},
+  });
+  const {data} = queryResult;
+  useBlockTraceOnQueryResult(queryResult, 'RunRootQuery');
+  const trace = useRunRootTrace();
+
+  return (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        minWidth: 0,
+        width: '100%',
+        height: '100%',
+        overflow: 'hidden',
+      }}
+    >
+      <RunById data={data} runId={runId} trace={trace} />
+    </div>
+  );
+};
+
 const RunById = (props: {data: RunRootQuery | undefined; runId: string; trace: RunRootTrace}) => {
   const {data, runId, trace} = props;
 

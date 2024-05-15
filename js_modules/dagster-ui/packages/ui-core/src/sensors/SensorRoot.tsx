@@ -18,7 +18,12 @@ import {PYTHON_ERROR_FRAGMENT} from '../app/PythonErrorFragment';
 import {PythonErrorInfo} from '../app/PythonErrorInfo';
 import {FIFTEEN_SECONDS, useMergedRefresh, useQueryRefreshAtInterval} from '../app/QueryRefresh';
 import {useTrackPageView} from '../app/analytics';
-import {InstigationTickStatus, SensorType} from '../graphql/types';
+import {
+  InstigationSelector,
+  InstigationTickStatus,
+  SensorSelector,
+  SensorType,
+} from '../graphql/types';
 import {useDocumentTitle} from '../hooks/useDocumentTitle';
 import {useQueryPersistedState} from '../hooks/useQueryPersistedState';
 import {INSTANCE_HEALTH_FRAGMENT} from '../instance/InstanceHealthFragment';
@@ -33,10 +38,14 @@ export const SensorRoot = ({repoAddress}: {repoAddress: RepoAddress}) => {
   const {sensorName} = useParams<{sensorName: string}>();
   useDocumentTitle(`Sensor: ${sensorName}`);
 
-  const sensorSelector = {
-    ...repoAddressToSelector(repoAddress),
-    sensorName,
-  };
+  const sensorSelector: SensorSelector = useMemo(
+    () => ({...repoAddressToSelector(repoAddress), sensorName}),
+    [repoAddress, sensorName],
+  );
+  const instigationSelector: InstigationSelector = useMemo(
+    () => ({...repoAddressToSelector(repoAddress), name: sensorName}),
+    [repoAddress, sensorName],
+  );
 
   const [statuses, setStatuses] = useState<undefined | InstigationTickStatus[]>(undefined);
   const [timeRange, setTimerange] = useState<undefined | [number, number]>(undefined);
@@ -167,13 +176,12 @@ export const SensorRoot = ({repoAddress}: {repoAddress: RepoAddress}) => {
         sensorDaemonStatus={sensorDaemonStatus}
         padding={{vertical: 16, horizontal: 24}}
       />
-      <TickHistoryTimeline repoAddress={repoAddress} name={sensorOrError.name} {...variables} />
+      <TickHistoryTimeline tickSource={instigationSelector} {...variables} />
       <Box margin={{top: 32}} border="top">
         {selectedTab === 'evaluations' ? (
           <TicksTable
             tabs={tabs}
-            repoAddress={repoAddress}
-            name={sensorOrError.name}
+            tickSource={instigationSelector}
             setParentStatuses={setStatuses}
             setTimerange={setTimerange}
           />

@@ -144,6 +144,9 @@ export const Headers = () => {
 
 export const HeadersContainer = styled.div`
   display: flex;
+  position: sticky;
+  top: 0;
+  background: ${Colors.backgroundDefault()};
   color: ${Colors.textLight()};
   text-transform: uppercase;
   font-size: 12px;
