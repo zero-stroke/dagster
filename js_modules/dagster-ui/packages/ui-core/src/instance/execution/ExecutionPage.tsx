@@ -171,7 +171,7 @@ export const ExecutionPage = () => {
         <Box padding={{left: 24}} border="bottom">
           <Tabs size="large" selectedTabId={selectedTab}>
             <Tab id="runs" title="Runs" onClick={() => setSelectedTab('runs')} />
-            <Tab id="assets" title="Assets" onClick={() => setSelectedTab('assets')} />
+            <Tab id="assets" title="Lineage" onClick={() => setSelectedTab('assets')} />
             <Tab id="partitions" title="Partitions" onClick={() => setSelectedTab('partitions')} />
             <Tab id="ticks" title="Ticks" onClick={() => setSelectedTab('ticks')} />
           </Tabs>
