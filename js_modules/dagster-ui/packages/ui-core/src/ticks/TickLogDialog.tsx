@@ -131,7 +131,7 @@ export const QueryfulTickLogsTable = ({tick, tickSource}: TickLogTableProps) => 
   );
 };
 
-const TickLogsTable = ({events}: {events: TickLogEventFragment[]}) => {
+export const TickLogsTable = ({events}: {events: TickLogEventFragment[]}) => {
   return (
     <ColumnWidthsProvider onWidthsChanged={() => {}}>
       <div style={{height: 500, position: 'relative', zIndex: 0}}>

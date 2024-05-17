@@ -643,7 +643,7 @@ const JOB_TICK_HISTORY_QUERY = gql`
   ${HISTORY_TICK_FRAGMENT}
 `;
 
-const BACKFILL_TICK_HISTORY_QUERY = gql`
+export const BACKFILL_TICK_HISTORY_QUERY = gql`
   query BackfillTickHistoryQuery(
     $backfillId: String!
     $dayRange: Int

@@ -7,7 +7,6 @@ import {
   JobTickLogEventsQueryVariables,
 } from './types/useTickWithLogs.types';
 import {InstigationSelector} from '../graphql/types';
-import {HistoryTickFragment} from '../instigation/types/InstigationUtils.types';
 
 export type TickSource = InstigationSelector | {backfillId: string};
 
@@ -15,7 +14,7 @@ export function useTickWithLogs({
   tick,
   tickSource,
 }: {
-  tick: HistoryTickFragment;
+  tick: {tickId: string} | null;
   tickSource: TickSource;
 }) {
   const queryInstigation = useQuery<JobTickLogEventsQuery, JobTickLogEventsQueryVariables>(
@@ -23,9 +22,9 @@ export function useTickWithLogs({
     {
       variables: {
         instigationSelector: tickSource as InstigationSelector,
-        tickId: Number(tick.tickId),
+        tickId: tick ? Number(tick.tickId) : 0,
       },
-      skip: 'backfillId' in tickSource,
+      skip: !tick || 'backfillId' in tickSource,
     },
   );
   const queryBackfill = useQuery<BackfillTickLogEventsQuery, BackfillTickLogEventsQueryVariables>(
@@ -33,9 +32,9 @@ export function useTickWithLogs({
     {
       variables: {
         backfillId: 'backfillId' in tickSource ? tickSource.backfillId : '',
-        tickId: Number(tick.tickId),
+        tickId: tick ? Number(tick.tickId) : 0,
       },
-      skip: !('backfillId' in tickSource),
+      skip: !tick || !('backfillId' in tickSource),
     },
   );
 

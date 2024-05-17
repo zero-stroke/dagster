@@ -20,6 +20,7 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import React, {useMemo} from 'react';
 import {Link, useParams} from 'react-router-dom';
 
+import {ExecutionLogsTab} from './ExecutionLogsTab';
 import {ExecutionPartitionsTab} from './ExecutionPartitionsTab';
 import {ExecutionRunsTab} from './ExecutionRunsTab';
 import {ExecutionTicksTab} from './ExecutionTicksTab';
@@ -174,12 +175,14 @@ export const ExecutionPage = () => {
             <Tab id="assets" title="Lineage" onClick={() => setSelectedTab('assets')} />
             <Tab id="partitions" title="Partitions" onClick={() => setSelectedTab('partitions')} />
             <Tab id="ticks" title="Ticks" onClick={() => setSelectedTab('ticks')} />
+            <Tab id="logs" title="Coordinator logs" onClick={() => setSelectedTab('logs')} />
           </Tabs>
         </Box>
         {selectedTab === 'runs' && <ExecutionRunsTab backfill={backfill} />}
         {selectedTab === 'assets' && <ExecutionAssetsTab assetKeys={assetKeys} />}
         {selectedTab === 'partitions' && <ExecutionPartitionsTab backfill={backfill} />}
         {selectedTab === 'ticks' && <ExecutionTicksTab backfill={backfill} />}
+        {selectedTab === 'logs' && <ExecutionLogsTab backfill={backfill} />}
       </Box>
     );
   }
