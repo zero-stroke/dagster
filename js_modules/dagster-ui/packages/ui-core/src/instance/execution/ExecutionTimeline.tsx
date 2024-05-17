@@ -24,10 +24,11 @@ type Props = {
   loading?: boolean;
   runs: TimelineRun[];
   range: [number, number];
+  now: number;
 };
 
 export const ExecutionTimeline = (props: Props) => {
-  const {loading = false, runs, range} = props;
+  const {loading = false, runs, range, now} = props;
   const parentRef = React.useRef<HTMLDivElement | null>(null);
   const {
     viewport: {width, height},
@@ -58,6 +59,7 @@ export const ExecutionTimeline = (props: Props) => {
       />
       <div style={{position: 'relative'}}>
         <TimeDividers
+          now={now}
           interval={range[1] - range[0] > ONE_HOUR_MSEC * 4 ? ONE_HOUR_MSEC : ONE_HOUR_MSEC / 6}
           range={range}
           height={runs.length > 0 ? height : 0}

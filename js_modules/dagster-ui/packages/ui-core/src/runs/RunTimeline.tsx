@@ -326,6 +326,7 @@ interface TimeDividersProps {
   height: number;
   interval: number;
   range: [number, number];
+  now?: number;
 }
 
 const dateTimeOptions: Intl.DateTimeFormatOptions = {
@@ -351,7 +352,7 @@ const timeOnlyOptionsWithMinute: Intl.DateTimeFormatOptions = {
 };
 
 export const TimeDividers = (props: TimeDividersProps) => {
-  const {interval, range, height} = props;
+  const {interval, range, height, now: _now} = props;
   const [start, end] = range;
   const formatDateTime = useFormatDateTime();
 
@@ -416,7 +417,7 @@ export const TimeDividers = (props: TimeDividersProps) => {
       .filter((marker) => marker.left > 0);
   }, [end, start, interval, formatDateTime]);
 
-  const now = Date.now();
+  const now = _now || Date.now();
   const nowLeft = `${(((now - start) / (end - start)) * 100).toPrecision(3)}%`;
 
   return (

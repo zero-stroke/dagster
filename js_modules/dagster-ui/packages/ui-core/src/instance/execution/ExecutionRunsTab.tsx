@@ -112,7 +112,6 @@ const ExecutionRunTimeline = ({
   const {jobs, initialLoading, queryData} = useRunsForTimeline([0, 2000000000000], filter, false);
 
   const [_, setTick] = React.useState(0);
-  const now = Date.now();
 
   React.useEffect(() => {
     setTick((t) => t + 1);
@@ -131,9 +130,10 @@ const ExecutionRunTimeline = ({
 
   // for now, "hack" the timeline to show runs on separate rows by pretending they're jobs
   const job = jobs[0];
-  const {runs, range} = React.useMemo(() => {
+  const {runs, range, now} = React.useMemo(() => {
+    const now = Date.now();
     if (!job) {
-      return {runs: [], range: [now, now] as [number, number]};
+      return {runs: [], now, range: [now, now] as [number, number]};
     }
 
     const runs = job.runs;
@@ -149,8 +149,8 @@ const ExecutionRunTimeline = ({
     range[0] -= duration * 0.15;
     range[1] += duration * 0.15;
 
-    return {runs, range};
-  }, [job, now, endTimestamp]);
+    return {runs, now, range};
+  }, [job, endTimestamp]);
 
   if (initialLoading) {
     return (
@@ -171,7 +171,7 @@ const ExecutionRunTimeline = ({
     <>
       <Box padding={{horizontal: 24, vertical: 12}}>{actionBarComponents}</Box>
       <ErrorBoundary region="timeline">
-        <ExecutionTimeline loading={initialLoading} range={range} runs={runs} />
+        <ExecutionTimeline loading={initialLoading} range={range} runs={runs} now={now} />
       </ErrorBoundary>
     </>
   );
