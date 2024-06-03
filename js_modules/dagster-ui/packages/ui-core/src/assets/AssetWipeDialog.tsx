@@ -14,7 +14,7 @@ import {
 import {useVirtualizer} from '@tanstack/react-virtual';
 import {memo, useLayoutEffect, useMemo, useRef, useState} from 'react';
 
-import {asAssetKeyInput} from './asInput';
+import {asAssetPartitionRangeInput} from './asInput';
 import {AssetWipeMutation, AssetWipeMutationVariables} from './types/AssetWipeDialog.types';
 import {showCustomAlert} from '../app/CustomAlertProvider';
 import {PYTHON_ERROR_FRAGMENT} from '../app/PythonErrorFragment';
@@ -28,6 +28,27 @@ interface AssetKey {
 }
 
 const CHUNK_SIZE = 100;
+
+export const AssetWipeDialog = ({
+  assetKeys,
+  isOpen,
+  onClose,
+  onComplete,
+  requery,
+}: {
+  assetKeys: AssetKey[];
+  isOpen: boolean;
+  onClose: () => void;
+  onComplete: (assetKeys: AssetKey[]) => void;
+  requery?: RefetchQueriesFunction;
+}) => {
+  const [requestWipe] = useMutation<AssetWipeMutation, AssetWipeMutationVariables>(
+    ASSET_WIPE_MUTATION,
+    {
+      variables: {assetPartitionRanges: assetKeys.map((x) => asAssetPartitionRangeInput(x))},
+      refetchQueries: requery,
+    },
+  );
 
 export const AssetWipeDialog = memo(
   (props: {
@@ -192,11 +213,17 @@ export const AssetWipeDialogInner = memo(
 );
 
 const ASSET_WIPE_MUTATION = gql`
-  mutation AssetWipeMutation($assetKeys: [AssetKeyInput!]!) {
-    wipeAssets(assetKeys: $assetKeys) {
+  mutation AssetWipeMutation($assetPartitionRanges: [PartitionsByAssetSelector!]!) {
+    wipeAssets(assetPartitionRanges: $assetPartitionRanges) {
       ... on AssetWipeSuccess {
-        assetKeys {
-          path
+        assetPartitionRanges {
+          assetKey {
+            path
+          }
+          partitionRange {
+            start
+            end
+          }
         }
       }
       ...PythonErrorFragment
