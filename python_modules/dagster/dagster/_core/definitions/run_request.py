@@ -207,7 +207,9 @@ class RunRequest(
         ],
         current_time: Optional[datetime] = None,
         dynamic_partitions_store: Optional[DynamicPartitionsStore] = None,
+        partitions_def: Optional["PartitionsDefinition"] = None,
     ) -> "RunRequest":
+        from dagster._core.definitions.asset_job import ASSET_BASE_JOB_NAME
         from dagster._core.definitions.job_definition import JobDefinition
         from dagster._core.definitions.partition import PartitionedConfig, PartitionsDefinition
 
@@ -216,7 +218,7 @@ class RunRequest(
                 "Cannot resolve partition for run request without partition key",
             )
 
-        partitions_def = target_definition.partitions_def
+        partitions_def = partitions_def or target_definition.partitions_def
         if partitions_def is None:
             check.failed(
                 "Cannot resolve partition for run request when target job"
@@ -225,7 +227,9 @@ class RunRequest(
         partitions_def = cast(PartitionsDefinition, partitions_def)
 
         partitioned_config = (
-            target_definition.partitioned_config
+            PartitionedConfig.from_flexible_config(None, partitions_def)
+            if target_definition.name == ASSET_BASE_JOB_NAME
+            else target_definition.partitioned_config
             if isinstance(target_definition, JobDefinition)
             else PartitionedConfig.from_flexible_config(target_definition.config, partitions_def)
         )
