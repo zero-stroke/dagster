@@ -241,7 +241,7 @@ def _attach_resources_to_jobs_and_instigator_jobs(
 def _create_repository_using_definitions_args(
     name: str,
     assets: Optional[
-        Iterable[Union[AssetsDefinition, SourceAsset, CacheableAssetsDefinition]]
+        Iterable[Union[AssetsDefinition, AssetSpec, SourceAsset, CacheableAssetsDefinition]]
     ] = None,
     schedules: Optional[
         Iterable[Union[ScheduleDefinition, UnresolvedPartitionedAssetScheduleDefinition]]
@@ -282,6 +282,14 @@ def _create_repository_using_definitions_args(
         sensors_with_resources,
     ) = _attach_resources_to_jobs_and_instigator_jobs(jobs, schedules, sensors, resource_defs)
 
+    if assets:
+        asset_specs = [obj for obj in assets if isinstance(obj, AssetSpec)]
+        assets_with_specs_replaced = [obj for obj in assets if not isinstance(obj, AssetSpec)]
+        if asset_specs:
+            assets_with_specs_replaced.append(AssetsDefinition(specs=asset_specs))
+    else:
+        assets_with_specs_replaced = []
+
     @repository(
         name=name,
         default_executor_def=executor_def,
@@ -291,7 +299,7 @@ def _create_repository_using_definitions_args(
     )
     def created_repo():
         return [
-            *with_resources(assets or [], resource_defs),
+            *with_resources(assets_with_specs_replaced, resource_defs),
             *with_resources(asset_checks or [], resource_defs),
             *(schedules_with_resources),
             *(sensors_with_resources),
@@ -403,7 +411,7 @@ class Definitions:
       Any other object is coerced to a :py:class:`ResourceDefinition`.
     """
 
-    _assets: Iterable[Union[AssetsDefinition, SourceAsset, CacheableAssetsDefinition]]
+    _assets: Iterable[Union[AssetsDefinition, AssetSpec, SourceAsset, CacheableAssetsDefinition]]
     _schedules: Iterable[Union[ScheduleDefinition, UnresolvedPartitionedAssetScheduleDefinition]]
     _sensors: Iterable[SensorDefinition]
     _jobs: Iterable[Union[JobDefinition, UnresolvedAssetJobDefinition]]
@@ -415,7 +423,7 @@ class Definitions:
     def __init__(
         self,
         assets: Optional[
-            Iterable[Union[AssetsDefinition, SourceAsset, CacheableAssetsDefinition]]
+            Iterable[Union[AssetsDefinition, AssetSpec, SourceAsset, CacheableAssetsDefinition]]
         ] = None,
         schedules: Optional[
             Iterable[Union[ScheduleDefinition, UnresolvedPartitionedAssetScheduleDefinition]]
@@ -430,7 +438,7 @@ class Definitions:
         self._assets = check.opt_iterable_param(
             assets,
             "assets",
-            (AssetsDefinition, SourceAsset, CacheableAssetsDefinition),
+            (AssetsDefinition, AssetSpec, SourceAsset, CacheableAssetsDefinition),
         )
         self._schedules = check.opt_iterable_param(
             schedules,
@@ -468,7 +476,9 @@ class Definitions:
         )
 
     @property
-    def assets(self) -> Iterable[Union[AssetsDefinition, SourceAsset, CacheableAssetsDefinition]]:
+    def assets(
+        self,
+    ) -> Iterable[Union[AssetsDefinition, AssetSpec, SourceAsset, CacheableAssetsDefinition]]:
         return self._assets
 
     @property

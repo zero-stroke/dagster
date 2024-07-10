@@ -878,12 +878,14 @@ def test_get_all_asset_specs():
     @observable_source_asset(group_name="blag")
     def asset6(): ...
 
-    defs = Definitions(assets=[asset1, asset2, assets3_and_4, asset5, asset6])
+    asset7 = AssetSpec("asset7", tags={"apple": "banana"})
+
+    defs = Definitions(assets=[asset1, asset2, assets3_and_4, asset5, asset6, asset7])
     all_asset_specs = defs.get_all_asset_specs()
-    assert len(all_asset_specs) == 6
+    assert len(all_asset_specs) == 7
     asset_specs_by_key = {spec.key: spec for spec in all_asset_specs}
     assert asset_specs_by_key.keys() == {
-        AssetKey(s) for s in ["asset1", "asset2", "asset3", "asset4", "asset5", "asset6"]
+        AssetKey(s) for s in ["asset1", "asset2", "asset3", "asset4", "asset5", "asset6", "asset7"]
     }
     assert asset_specs_by_key[AssetKey("asset1")] == AssetSpec(
         "asset1", tags={"foo": "fooval"}, group_name="default"
@@ -899,6 +901,7 @@ def test_get_all_asset_specs():
         tags={"biz": "boz"},
     )
     assert asset_specs_by_key[AssetKey("asset6")] == AssetSpec("asset6", group_name="blag")
+    assert asset_specs_by_key[AssetKey("asset7")] == asset7._replace(group_name="default")
 
 
 def test_invalid_partitions_subclass():
