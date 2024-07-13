@@ -346,6 +346,12 @@ class AssetsDefinition(ResourceAddable, RequiresResources, IHasInternalInit):
                 f" {type(self._partitions_def)}.",
             )
 
+            check.invariant(
+                spec.partitions_def is None or spec.partitions_def == partitions_def,
+                f"AssetSpec for {spec.key.to_user_string()} has partitions_def which is different "
+                "than the partitions_def provided to AssetsDefinition.",
+            )
+
             normalized_specs.append(
                 spec._replace(
                     group_name=group_name,
@@ -353,6 +359,7 @@ class AssetsDefinition(ResourceAddable, RequiresResources, IHasInternalInit):
                     metadata=metadata,
                     description=description,
                     skippable=skippable,
+                    partitions_def=self._partitions_def,
                 )
             )
 

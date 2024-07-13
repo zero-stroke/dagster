@@ -7,6 +7,7 @@ from dagster import (
     AssetMaterialization,
     AssetOut,
     AssetsDefinition,
+    AssetSpec,
     DagsterInstance,
     DagsterInvalidDefinitionError,
     DailyPartitionsDefinition,
@@ -764,3 +765,48 @@ def test_error_on_nonexistent_upstream_partition():
                 [downstream_asset, upstream_asset.to_source_asset()],
                 partition_key="2020-01-02-05:00",
             )
+
+
+def test_asset_spec_partitions_def():
+    partitions_def = DailyPartitionsDefinition(start_date="2020-01-01")
+
+    @multi_asset(
+        specs=[AssetSpec("asset1", partitions_def=partitions_def)], partitions_def=partitions_def
+    )
+    def assets(): ...
+
+    assert assets.partitions_def == partitions_def
+    assert next(iter(assets.specs)).partitions_def == partitions_def
+
+    with pytest.raises(
+        CheckError,
+        match="AssetSpec for asset1 has partitions_def which is different than the partitions_def ",
+    ):
+
+        @multi_asset(specs=[AssetSpec("asset1", partitions_def=partitions_def)])
+        def assets(): ...
+
+    with pytest.raises(
+        CheckError,
+        match="AssetSpec for asset1 has partitions_def which is different than the partitions_def ",
+    ):
+
+        @multi_asset(
+            specs=[AssetSpec("asset1", partitions_def=StaticPartitionsDefinition(["a", "b"]))],
+            partitions_def=partitions_def,
+        )
+        def assets(): ...
+
+    with pytest.raises(
+        CheckError,
+        match="AssetSpec for asset2 has partitions_def which is different than the partitions_def ",
+    ):
+
+        @multi_asset(
+            specs=[
+                AssetSpec("asset1", partitions_def=partitions_def),
+                AssetSpec("asset2", partitions_def=StaticPartitionsDefinition(["a", "b"])),
+            ],
+            partitions_def=partitions_def,
+        )
+        def assets(): ...
