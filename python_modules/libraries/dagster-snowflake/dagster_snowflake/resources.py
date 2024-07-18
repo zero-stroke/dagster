@@ -34,6 +34,9 @@ except ImportError:
     warnings.warn(msg)
     raise
 
+# Snowflake Partner Connection Identifier
+SNOWFLAKE_PARTNER_CONNECTION_IDENTIFIER = "DagsterLabs_Dagster"
+
 
 class SnowflakeResource(ConfigurableResource, IAttachDifferentObjectToOpContext):
     """A resource for connecting to the Snowflake data warehouse.
@@ -332,6 +335,7 @@ class SnowflakeResource(ConfigurableResource, IAttachDifferentObjectToOpContext)
             or self._resolved_config_dict.get("private_key_path", None) is not None
         ):
             conn_args["private_key"] = self._snowflake_private_key(self._resolved_config_dict)
+            conn_args["application"] = self._snowflake_partner_connection_identifier()
 
         return conn_args
 
@@ -353,6 +357,7 @@ class SnowflakeResource(ConfigurableResource, IAttachDifferentObjectToOpContext)
             )
             if self._resolved_config_dict.get(k) is not None
         }
+        conn_args["application"] = self._snowflake_partner_connection_identifier()
 
         return conn_args
 
@@ -371,6 +376,12 @@ class SnowflakeResource(ConfigurableResource, IAttachDifferentObjectToOpContext)
             sqlalchemy_engine_args["authenticator"] = config["authenticator"]
 
         return sqlalchemy_engine_args
+
+    def _snowflake_partner_connection_identifier(self) -> str:
+        if self._resolved_config_dict.get("application", None) is not None:
+            return self._resolved_config_dict.get("application")
+        else:
+            return SNOWFLAKE_PARTNER_CONNECTION_IDENTIFIER
 
     def _snowflake_private_key(self, config) -> bytes:
         # If the user has defined a path to a private key, we will use that.

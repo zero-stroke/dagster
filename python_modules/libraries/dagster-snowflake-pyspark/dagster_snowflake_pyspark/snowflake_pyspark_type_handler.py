@@ -5,6 +5,7 @@ from dagster import InputContext, MetadataValue, OutputContext, TableColumn, Tab
 from dagster._core.definitions.metadata import RawMetadataValue
 from dagster._core.storage.db_io_manager import DbTypeHandler, TableSlice
 from dagster_snowflake import SnowflakeIOManager, build_snowflake_io_manager
+from dagster_snowflake.resources import SNOWFLAKE_PARTNER_CONNECTION_IDENTIFIER
 from dagster_snowflake.snowflake_io_manager import SnowflakeDbClient
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql.types import StructType
@@ -18,6 +19,9 @@ def _get_snowflake_options(config, table_slice: TableSlice) -> Mapping[str, str]
         "Missing config: Warehouse is required when using PySpark with the Snowflake I/O manager.",
     )
 
+    # If the application is not set, use the default partner connection identifier
+    application = config.get("application", SNOWFLAKE_PARTNER_CONNECTION_IDENTIFIER)
+
     conf = {
         "sfURL": f"{config['account']}.snowflakecomputing.com",
         "sfUser": config["user"],
@@ -25,6 +29,7 @@ def _get_snowflake_options(config, table_slice: TableSlice) -> Mapping[str, str]
         "sfDatabase": config["database"],
         "sfSchema": table_slice.schema,
         "sfWarehouse": config["warehouse"],
+        "APPLICATION": application
     }
 
     return conf

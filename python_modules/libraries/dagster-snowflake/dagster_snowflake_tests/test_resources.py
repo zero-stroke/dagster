@@ -339,3 +339,6 @@ def test_fetch_last_updated_timestamps(db_str: str):
         assert isinstance(freshness_val, FloatMetadataValue)
         assert freshness_val.value
         assert freshness_val.value > start_time
+
+
+# TODO test get_connection
