@@ -28,7 +28,7 @@ from dagster._core.execution.build_resources import wrap_resources_for_execution
 from dagster._core.execution.with_resources import with_resources
 from dagster._core.executor.base import Executor
 from dagster._core.instance import DagsterInstance
-from dagster._record import record
+from dagster._record import record_custom
 from dagster._utils.cached_method import cached_method
 
 from .assets import AssetsDefinition, SourceAsset
@@ -337,7 +337,7 @@ class DefinitionsArgs(TypedDict):
     asset_checks: Optional[Iterable[AssetChecksDefinition]]
 
 
-@record
+@record_custom
 class Definitions:
     """A set of definitions explicitly available and loadable by Dagster tools.
 
@@ -442,6 +442,33 @@ class Definitions:
     # passed here instead of AssetChecksDefinitions: https://github.com/dagster-io/dagster/issues/22064.
     # After we fix the bug, we should remove AssetsDefinition from the set of accepted types.
     asset_checks: Optional[Iterable[AssetChecksDefinition]] = None
+
+    def __new__(
+        cls,
+        assets: Optional[
+            Iterable[Union[AssetsDefinition, SourceAsset, CacheableAssetsDefinition]]
+        ] = None,
+        schedules: Optional[
+            Iterable[Union[ScheduleDefinition, UnresolvedPartitionedAssetScheduleDefinition]]
+        ] = None,
+        sensors: Optional[Iterable[SensorDefinition]] = None,
+        jobs: Optional[Iterable[Union[JobDefinition, UnresolvedAssetJobDefinition]]] = None,
+        resources: Optional[Mapping[str, Any]] = None,
+        executor: Optional[Union[ExecutorDefinition, Executor]] = None,
+        loggers: Optional[Mapping[str, LoggerDefinition]] = None,
+        asset_checks: Optional[Iterable[AssetChecksDefinition]] = None,
+    ):
+        return super().__new__(
+            cls,
+            assets=assets,
+            schedules=schedules,
+            sensors=sensors,
+            jobs=jobs,
+            resources=resources,
+            executor=executor,
+            loggers=loggers,
+            asset_checks=asset_checks,
+        )
 
     @public
     def get_job_def(self, name: str) -> JobDefinition:
