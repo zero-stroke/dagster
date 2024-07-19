@@ -1,9 +1,15 @@
 from typing import Dict, cast
 from unittest.mock import MagicMock
 
-from dagster import AssetKey, AssetsDefinition, MaterializeResult, PipesClient, materialize
+from dagster import (
+    AssetKey,
+    AssetsDefinition,
+    Definitions,
+    MaterializeResult,
+    PipesClient,
+    materialize,
+)
 from dagster._core.pipes.client import PipesClientCompletedInvocation
-from dagster_blueprints.blueprint import BlueprintDefinitions
 from dagster_blueprints.blueprint_assets_definition import AssetSpecModel
 from dagster_blueprints.databricks_blueprint import DatabricksTaskBlueprint
 from databricks.sdk.service import jobs
@@ -149,9 +155,9 @@ def test_op_name_collisions() -> None:
         assets=[AssetSpecModel(key="asset2")], task={"placeholder": "placeholder"}
     )
     resources = {"pipes_databricks_client": object()}
-    blueprint_defs = BlueprintDefinitions.merge(
+    blueprint_defs = Definitions.merge(
         single_asset_blueprint1.build_defs(),
         single_asset_blueprint2.build_defs(),
-        BlueprintDefinitions(resources=resources),
+        Definitions(resources=resources),
     )
-    blueprint_defs.to_definitions()
+    Definitions.validate_loadable(blueprint_defs)
