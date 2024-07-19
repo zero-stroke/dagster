@@ -254,7 +254,6 @@ def build_asset_job(
             logger_defs=original_job.loggers,
             hooks=original_job.hook_defs,
             op_retry_policy=original_job._op_retry_policy,  # noqa: SLF001
-            version_strategy=original_job.version_strategy,
         )
 
     return graph.to_job(
