@@ -40,6 +40,7 @@ from .dependency import (
     DependencyMapping,
     DependencyStructure,
     GraphNode,
+    IDependencyDefinition,
     Node,
     NodeHandle,
     NodeInput,
@@ -554,6 +555,8 @@ class GraphDefinition(NodeDefinition):
     def copy(
         self,
         name: Optional[str] = None,
+        node_defs: Optional[Sequence[NodeDefinition]] = None,
+        dependencies: Optional[DependencyMapping[NodeInvocation]] = None,
         description: Optional[str] = None,
         input_mappings: Optional[Sequence[InputMapping]] = None,
         output_mappings: Optional[Sequence[OutputMapping]] = None,
@@ -562,8 +565,8 @@ class GraphDefinition(NodeDefinition):
         input_assets: Optional[Mapping[str, Mapping[str, "AssetsDefinition"]]] = None,
     ) -> Self:
         return self.__class__(
-            node_defs=self.node_defs,
-            dependencies=self.dependencies,
+            node_defs=node_defs or self.node_defs,
+            dependencies=dependencies or self.dependencies,
             name=name or self.name,
             description=description or self.description,
             input_mappings=input_mappings or self._input_mappings,
@@ -976,6 +979,109 @@ class GraphDefinition(NodeDefinition):
 
         return result
 
+    def with_inner_inputs_mapped_to_outer(
+        self, input_handles: AbstractSet[NodeInputHandle], prefix: Optional[NodeHandle]
+    ) -> Tuple["GraphDefinition", Mapping[NodeInputHandle, str]]:
+        """Create a new graph with the inner inputs mapped to new outer inputs.
+
+        Args:
+            input_handles: Input handles within the graph that are not mapped to inputs within their
+                immediate parent graph.
+
+        Returns:
+            A tuple of the new graph with the inner inputs mapped to new outer inputs, and a mapping
+            from inner input handles to the outer input names.
+        """
+        all_input_names = set(self.input_dict.keys())
+        new_input_mappings: List[InputMapping] = []
+        outer_inputs_by_inner_input_handle: Dict[NodeInputHandle, str] = {}
+        node_defs_by_name: Mapping[str, NodeDefinition] = {}
+        dependencies: Dict[NodeInvocation, Mapping[str, IDependencyDefinition]] = {}
+
+        invocations_by_name = {
+            invocation.alias or invocation.name: invocation
+            for invocation in self.dependencies.keys()
+        }
+
+        for node in self.nodes:
+            for node_input in node.inputs():
+                input_handle = node_input.to_handle(prefix)
+                if input_handle in input_handles:
+                    outer_input_name = make_alias_if_collision(
+                        node_input.input_name, all_input_names
+                    )
+                    all_input_names.add(outer_input_name)
+                    outer_inputs_by_inner_input_handle[input_handle] = outer_input_name
+                    new_input_mapping = InputMapping(
+                        graph_input_name=outer_input_name,
+                        mapped_node_name=node_input.node_name,
+                        mapped_node_input_name=node_input.input_name,
+                    )
+                    new_input_mappings.append(new_input_mapping)
+
+            # recurse
+            invocation = invocations_by_name[node.name]
+            if isinstance(node.definition, GraphDefinition):
+                sub_graph_def, sub_new_mappings = node.definition.with_inner_inputs_mapped_to_outer(
+                    input_handles, NodeHandle(node.name, parent=prefix)
+                )
+                if (
+                    sub_graph_def.name in node_defs_by_name
+                    and sub_graph_def != node_defs_by_name[sub_graph_def.name]
+                ):
+                    replacement_def_name = make_alias_if_collision(
+                        sub_graph_def.name, node_defs_by_name.keys()
+                    )
+                    sub_graph_def = sub_graph_def.copy(name=replacement_def_name)
+                    # TODO: if this changes the resolved name of the replacement invocation, set
+                    # an alias to put it back
+                    replacement_invocation = invocation._replace(name=replacement_def_name)
+                    check.invariant(
+                        replacement_invocation.resolved_name == invocation.resolved_name
+                    )
+                    dependencies[replacement_invocation] = self.dependencies[invocation]
+                else:
+                    dependencies[invocation] = self.dependencies[invocation]
+
+                node_defs_by_name[sub_graph_def.name] = sub_graph_def
+
+                for input_handle, sub_graph_input_name in sub_new_mappings.items():
+                    outer_input_name = make_alias_if_collision(
+                        sub_graph_input_name, all_input_names
+                    )
+                    all_input_names.add(outer_input_name)
+                    outer_inputs_by_inner_input_handle[input_handle] = outer_input_name
+                    new_input_mappings.append(
+                        InputMapping(
+                            graph_input_name=outer_input_name,
+                            mapped_node_name=node.name,
+                            mapped_node_input_name=sub_graph_input_name,
+                        )
+                    )
+
+            else:
+                node_defs_by_name[node.definition.name] = node.definition
+                dependencies[invocation] = self.dependencies[invocation]
+
+        if not new_input_mappings:
+            return self, {}
+        else:
+            return self.copy(
+                node_defs=list(node_defs_by_name.values()),
+                dependencies=dependencies,
+                input_mappings=[*self.input_mappings, *new_input_mappings],
+            ), outer_inputs_by_inner_input_handle
+
+
+def make_alias_if_collision(original: str, used: AbstractSet[str]) -> str:
+    counter = 1
+    result = original
+    while result in used:
+        result = f"{original}_{counter}"
+        counter += 1
+
+    return result
+
 
 class SubselectedGraphDefinition(GraphDefinition):
     """Defines a subselected graph.
@@ -1001,28 +1107,32 @@ class SubselectedGraphDefinition(GraphDefinition):
 
     def __init__(
         self,
+        name: str,
+        description: Optional[str],
+        config: Optional[ConfigMapping],
+        tags: Union[NormalizedTags, Optional[Mapping[str, str]]],
         parent_graph_def: GraphDefinition,
         node_defs: Optional[Sequence[NodeDefinition]],
-        dependencies: Optional[
-            Union[
-                DependencyMapping[str],
-                DependencyMapping[NodeInvocation],
-            ]
-        ],
+        dependencies: Optional[Union[DependencyMapping[str], DependencyMapping[NodeInvocation]]],
         input_mappings: Optional[Sequence[InputMapping]],
         output_mappings: Optional[Sequence[OutputMapping]],
+        input_assets: Optional[
+            Mapping[str, Mapping[str, Union["AssetsDefinition", "SourceAsset"]]]
+        ],
     ):
         self._parent_graph_def = check.inst_param(
             parent_graph_def, "parent_graph_def", GraphDefinition
         )
         super(SubselectedGraphDefinition, self).__init__(
-            name=parent_graph_def.name,  # should we create special name for subselected graphs
+            name=name,
+            description=description,
+            config=config,
             node_defs=node_defs,
             dependencies=dependencies,
             input_mappings=input_mappings,
             output_mappings=output_mappings,
-            config=parent_graph_def.config_mapping,
-            tags=parent_graph_def.tags,
+            tags=tags,
+            input_assets=input_assets,
         )
 
     @property
@@ -1035,6 +1145,31 @@ class SubselectedGraphDefinition(GraphDefinition):
     @property
     def is_subselected(self) -> bool:
         return True
+
+    def copy(
+        self,
+        name: Optional[str] = None,
+        node_defs: Optional[Sequence[NodeDefinition]] = None,
+        dependencies: Optional[DependencyMapping[NodeInvocation]] = None,
+        description: Optional[str] = None,
+        input_mappings: Optional[Sequence[InputMapping]] = None,
+        output_mappings: Optional[Sequence[OutputMapping]] = None,
+        config: Optional[ConfigMapping] = None,
+        tags: Optional[Mapping[str, str]] = None,
+        input_assets: Optional[Mapping[str, Mapping[str, "AssetsDefinition"]]] = None,
+    ) -> Self:
+        return self.__class__(
+            parent_graph_def=self.parent_graph_def,
+            node_defs=node_defs or self.node_defs,
+            dependencies=dependencies or self.dependencies,
+            name=name or self.name,
+            description=description or self.description,
+            input_mappings=input_mappings or self._input_mappings,
+            output_mappings=output_mappings or self._output_mappings,
+            config=config or self.config_mapping,
+            tags=tags or self.tags,
+            input_assets=input_assets or self._input_assets,
+        )
 
 
 def _validate_in_mappings(

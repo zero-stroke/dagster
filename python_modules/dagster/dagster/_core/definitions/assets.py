@@ -1324,6 +1324,10 @@ class AssetsDefinition(ResourceAddable, RequiresResources, IHasInternalInit):
                 "node_def": subsetted_computation.node_def,
                 "selected_asset_keys": subsetted_computation.selected_asset_keys,
                 "selected_asset_check_keys": subsetted_computation.selected_asset_check_keys,
+                "keys_by_input_name": {
+                    **self.node_keys_by_input_name,
+                    **subsetted_computation.keys_by_input_name,
+                },
                 "is_subset": True,
             }
         )

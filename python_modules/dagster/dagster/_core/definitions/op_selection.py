@@ -220,9 +220,14 @@ def _get_graph_subset(
     ]
 
     return SubselectedGraphDefinition(
+        name=graph.name,
+        description=graph.description,
         parent_graph_def=graph,
+        config=graph.config_mapping,
+        tags=graph.tags,
         dependencies=subgraph_deps,
         node_defs=list(subgraph_nodes.values()),
         input_mappings=subgraph_input_mappings,
         output_mappings=subgraph_output_mappings,
+        input_assets=graph.input_assets,
     )
