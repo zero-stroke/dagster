@@ -15,17 +15,14 @@ import {
   SingleBackfillQueryVariables,
 } from './types/BackfillRow.types';
 import {BackfillTableFragment} from './types/BackfillTable.types';
-import {showCustomAlert} from '../../app/CustomAlertProvider';
-import {PythonErrorInfo} from '../../app/PythonErrorInfo';
 import {FIFTEEN_SECONDS, useQueryRefreshAtInterval} from '../../app/QueryRefresh';
 import {isHiddenAssetGroupJob} from '../../asset-graph/Utils';
-import {BulkActionStatus, RunStatus} from '../../graphql/types';
+import {RunStatus} from '../../graphql/types';
 import {PartitionStatus, PartitionStatusHealthSourceOps} from '../../partitions/PartitionStatus';
 import {useBlockTraceOnQueryResult} from '../../performance/TraceContext';
 import {PipelineReference} from '../../pipelines/PipelineReference';
 import {AssetKeyTagCollection} from '../../runs/AssetTagCollections';
 import {CreatedByTagCell} from '../../runs/CreatedByTag';
-import {inProgressStatuses} from '../../runs/RunStatuses';
 import {RunStatusTagsWithCounts} from '../../runs/RunTimeline';
 import {runsPathWithFilters} from '../../runs/RunsFilterInput';
 import {TimestampDisplay} from '../../schedules/TimestampDisplay';
@@ -388,9 +385,7 @@ const RequestedPartitionStatusBar = ({all, requested}: {all: string[]; requested
 
 export const BackfillStatusTag = ({
   backfill,
-}: {
-  backfill: BackfillTableFragment;
-}) => {
+}: {backfill: BackfillTableFragment}) => {
   return <BackfillStatusTagForPage backfill={backfill} />;
 };
 

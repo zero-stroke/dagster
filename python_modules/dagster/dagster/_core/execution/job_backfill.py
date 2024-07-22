@@ -103,7 +103,7 @@ def execute_job_backfill_iteration(
             for run in backfill_runs:
                 if run.status not in FINISHED_STATUSES:
                     logger.info(
-                        f"Backfill {backfill.backfill_id} has in progress runs. Status will be updated when all runs are finished."
+                        f"Backfill {backfill.backfill_id} has in-progress runs. Status will be updated when all runs are finished."
                     )
                     return
             partition_names = cast(Sequence[str], backfill.partition_names)
